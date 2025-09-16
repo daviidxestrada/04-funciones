@@ -1,0 +1,291 @@
+ $client_ip = $_SERVER['REMOTE_ADDR']; ?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <meta charset="UTF-8" />
+  <title>Chatbot</title>
+
+  <style>
+    /* ===== Botón/Avatar del chat ===== */
+    .chat-avatar-container{
+      position: fixed;                /* el script ajusta right/bottom/width/height */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      gap: 0;
+      z-index: 10000000000000111;            /* muy alto para el botón */
+      outline: none;
+      right: 20px; bottom: 20px;      /* fallback */
+      width: 152px; height: 152px;    /* fallback desktop */
+    }
+    @media (max-width:480px){
+      .chat-avatar-container{ width:100px; height:100px; }
+    }
+    .chat-avatar{
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 50%;
+      box-shadow: 0 4px 12px rgba(0,0,0,.15);
+      transition: transform .3s ease;
+    }
+    .chat-avatar-container:hover .chat-avatar,
+    .chat-avatar-container:focus-visible .chat-avatar{
+      transform: scale(1.05);
+    }
+
+    /* ===== Ventana del chat ===== */
+    .chat-window{
+      position: fixed;
+      right: 20px;
+      bottom: 90px;
+      width: 300px;
+      max-height: 400px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      z-index: 1000000000001111 !important;  /* por encima de todo */
+      opacity: 0;
+      transition: opacity .3s ease;
+      pointer-events: none;
+    }
+    .chat-window.show{
+      display: flex;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .chat-header{ background:#BCCF42; color:#fff; padding:10px; font-weight:700; }
+    .chat-body{ flex:1; padding:10px; overflow-y:auto; }
+    .chat-input{ display:flex; border-top:1px solid #ccc; }
+    .chat-input input{ flex:1; border:0; padding:10px; }
+    .chat-input button{ border:0; background:#BCCF42; color:#fff; padding:10px 15px; cursor:pointer; }
+
+    .message{ margin-bottom:10px; }
+    .message.user{ text-align:right; color:#333; }
+    .message.assistant{ text-align:left; color:#4A90E2; }
+    .message.assistant a{ color:#BCCF42; text-decoration:underline; }
+    .message.assistant a:hover{ color:#9BB536; }
+  </style>
+</head>
+<body>
+
+  <!-- Botón/Avatar accesible -->
+  <div id="avatar_button"
+       class="chat-avatar-container"
+       role="button"
+       aria-label="Abrir asistente virtual de Ortega Morales Abogados"
+       aria-controls="chatWindow"
+       aria-expanded="false"
+       tabindex="0">
+    <img
+      src="https://www.ortegamoralesabogados.com/wp-content/uploads/2025/08/iconochatbot.png"
+      alt="Icono del asistente virtual Ortega Morales Abogados"
+      class="chat-avatar">
+  </div>
+
+  <!-- Ventana del chat accesible -->
+  <div class="chat-window" id="chatWindow"
+       role="dialog"
+       aria-labelledby="chatHeader"
+       aria-modal="true">
+    <div id="chatHeader" class="chat-header">Asistente Virtual</div>
+
+    <div class="chat-body" id="chatBody" role="log" aria-live="polite">
+      Hola soy Claudia, tu Asistente Virtual del despacho ORTEGA MORALES ABOGADOS, ¿en qué puedo ayudarte hoy?
+    </div>
+
+    <div class="chat-input">
+      <input type="text" id="chatInput"
+             placeholder="Escribe tu pregunta…"
+             aria-label="Escribir mensaje para el asistente virtual"
+             onkeydown="handleKey(event)">
+      <button onclick="sendMessage()" aria-label="Enviar mensaje al asistente virtual">Enviar</button>
+    </div>
+  </div>
+
+  <!-- Script principal del chat -->
+  <script>
+    // ID de sesión
+    const session_id =
+      (typeof crypto.randomUUID === 'function')
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
+            return v.toString(16);
+          });
+
+    // Auto-enlaces
+    function convertNewlinesToHTML(text) {
+  		return text.replace(/\n/g, '<br>');
+	}
+    function convertLinksToHTML(text){
+      const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+      return text.replace(urlRegex, url => {
+        const href = url.startsWith('www.') ? 'https://' + url : url;
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+      });
+    }
+
+    // Abrir/cerrar
+    const avatarBtn  = document.getElementById('avatar_button');
+    const chatWindow = document.getElementById('chatWindow');
+    const chatBody   = document.getElementById('chatBody');
+
+    avatarBtn.addEventListener('click', e => { e.stopPropagation(); toggleChat(); });
+    avatarBtn.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleChat(); }
+    });
+
+    function toggleChat(){ chatWindow.classList.contains('show') ? closeChat() : openChat(); }
+    function openChat(){
+      chatWindow.style.display = 'flex';
+      avatarBtn.style.display  = 'none';
+      setTimeout(() => chatWindow.classList.add('show'), 10);
+      chatWindow.setAttribute('aria-hidden', 'false');
+      avatarBtn.setAttribute('aria-expanded', 'true');
+      setTimeout(() => document.getElementById('chatInput')?.focus(), 60);
+    }
+    function closeChat(){
+      chatWindow.classList.remove('show');
+      chatWindow.setAttribute('aria-hidden', 'true');
+      avatarBtn.setAttribute('aria-expanded', 'false');
+      setTimeout(() => {
+        chatWindow.style.display = 'none';
+        avatarBtn.style.display  = 'flex';
+        avatarBtn.focus();
+      }, 300);
+    }
+
+    // Cerrar al hacer click fuera
+    setTimeout(() => {
+      document.addEventListener('click', (e) => {
+        const inside = chatWindow.contains(e.target);
+        const onBtn  = avatarBtn.contains(e.target);
+        if (chatWindow.classList.contains('show') && !inside && !onBtn) closeChat();
+      });
+    }, 0);
+
+    // Escape para cerrar
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && chatWindow.classList.contains('show')) closeChat();
+    });
+
+    function handleKey(e){ if (e.key === 'Enter') sendMessage(); }
+
+    function addMessage(text, role){
+      const msg = document.createElement('div');
+      msg.className = `message ${role}`;
+      msg.innerHTML = (role === 'assistant') ? convertLinksToHTML(marked.parse(text)) : text;
+      chatBody.appendChild(msg);
+      chatBody.scrollTop = chatBody.scrollHeight;
+    }
+    function createAssistantMessage(){
+      const msg = document.createElement('div');
+      msg.className = 'message assistant';
+      chatBody.appendChild(msg);
+      return msg;
+    }
+
+    // Envío + streaming
+    async function sendMessage(){
+      const input = document.getElementById('chatInput');
+      const message = input.value.trim();
+      if (!message) return;
+
+      addMessage(message, 'user');
+      input.value = '';
+
+      try {
+        const client_ip = '<?php echo $client_ip ?>';
+        const response = await fetch('https://api-ia.ortegamoralesabogados.com/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id, question: message, client_ip })
+        });
+        if (!response.ok) throw new Error('Error en la respuesta del servidor');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+
+        let currentMsgDiv = createAssistantMessage();
+        let currentText = '';
+
+        while (true){
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          currentText += chunk;
+          currentMsgDiv.innerHTML = convertLinksToHTML(marked.parse(currentText));
+          chatBody.scrollTop = chatBody.scrollHeight;
+        }
+        if (currentText && currentText.trim()){
+          currentMsgDiv.innerHTML = convertLinksToHTML(marked.parse(currentText));
+        }
+      } catch (err){
+        console.error(err);
+        addMessage('⚠️ Hubo un error al conectarse con el servidor.', 'assistant');
+      }
+    }
+  </script>
+
+  <!-- Posición fija (independiente de OneTap) -->
+  <script>
+    (function () {
+      const DESKTOP_SIZE = 152;  // px
+      const MOBILE_SIZE  = 100;  // px
+      const RIGHT  = 15;         // separación derecha
+      const BOTTOM = 20;         // separación inferior
+
+      function sizeByViewport(){ return (window.innerWidth <= 480) ? MOBILE_SIZE : DESKTOP_SIZE; }
+
+      function placeChatFixed(){
+        const chat = document.getElementById('avatar_button');
+        const img  = chat?.querySelector('.chat-avatar');
+        if (!chat || !img) return;
+
+        const size = sizeByViewport();
+        chat.style.position   = 'fixed';
+        chat.style.right      = RIGHT + 'px';
+        chat.style.bottom     = BOTTOM + 'px';
+        chat.style.width      = size + 'px';
+        chat.style.height     = size + 'px';
+        chat.style.display    = 'flex';
+        chat.style.alignItems = 'center';
+        chat.style.justifyContent = 'center';
+        chat.style.zIndex     = 2147483647;
+
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'contain';
+        img.style.borderRadius = '50%';
+      }
+
+      window.addEventListener('load',  () => { placeChatFixed(); setTimeout(placeChatFixed, 300); });
+      window.addEventListener('resize', placeChatFixed);
+      window.addEventListener('orientationchange', placeChatFixed);
+    })();
+  </script>
+
+	<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Observa cambios en el DOM hasta que aparezca el botón de OneTap
+    const obs = new MutationObserver(() => {
+      const oneTap = document.querySelector(".onetap-container-toggle .onetap-toggle");
+      if (oneTap) {
+        oneTap.style.setProperty("z-index", "10", "important"); // <-- Ajusta valor
+        obs.disconnect();
+      }
+    });
+
+    obs.observe(document.body, { childList: true, subtree: true });
+  });
+  </script>
+	
+</body>
+</html>

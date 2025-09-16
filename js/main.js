@@ -102,3 +102,67 @@ const incrementarContador=()=>{
     return contador
 }
 */
+
+//EJERCICIO 1: Crea una función llamada saludar que acepte un nombre como argumento y devuelva un mensaje de saludo como: "¡Hola, [nombre]!".
+function saludar(nombre) {
+    return "Hola, " + nombre + "!"
+}
+    console.log(saludar("Chempy"));
+
+    //ALT Ej1 con backsticks
+    function saludar(nombre){
+        return `¡Hola, ${nombre}!`
+    }
+
+    console.log(saludar("Maestro"));
+
+//EJERCICIO 2: Crea una función llamada suma que acepte dos números y devuelva la suma de estos.
+
+function suma(num1, num2){
+    return (num1 + num2)
+}
+
+console.log(suma(2,5));
+
+//EJERCICIO 3: Crea una función llamada esPar que acepte un número como argumento y devuelva true si el número es par o false si es impar.
+
+function esPar(numero) {
+    return numero % 2 === 0;
+}
+
+console.log(esPar(4));
+
+
+// EJ 3 ALTERNATIVA con if
+function esPar(numero){
+ if (numero % 2 === 0){
+    return true;
+ } else{
+    return false
+ }
+}
+
+console.log(esPar(7));
+
+// EJERCICIO 4: Escribe una función llamada mayorDeTres que reciba tres números como argumentos y devuelva el número mayor.
+
+function mayorDeTres(a,b,c){
+    if (a>b && a>c){
+        return a;
+}else if (b > a && b > c){
+    return b;
+}else {
+    return c;
+}
+
+}
+
+console.log(mayorDeTres(523,1733,900));
+
+//EJERCICIO 5:Crea una función llamada celsiusAFahrenheit que convierta una temperatura de grados Celsius a Fahrenheit usando la fórmula: F = (C \times 9/5) + 32]
+
+function celsiusAFahrenheit(celsius){
+    return (celsius * 9/5) + 32;
+}
+
+console.log(celsiusAFahrenheit(100))
